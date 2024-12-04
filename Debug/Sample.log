@@ -1,0 +1,11 @@
+﻿  sample.cpp
+C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\sample.cpp(563,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\sample.cpp(565,15): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\sample.cpp(1234,22): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\sample.cpp(1234,16): warning C4244: 'argument': conversion from 'double' to 'int', possible loss of data
+C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\sample.cpp(1273,45): warning C4244: 'argument': conversion from 'double' to 'GLfloat', possible loss of data
+C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\sample.cpp(1273,18): warning C4244: 'argument': conversion from 'double' to 'GLfloat', possible loss of data
+C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\sample.cpp(1276,45): warning C4244: 'argument': conversion from 'double' to 'GLfloat', possible loss of data
+C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\sample.cpp(1276,18): warning C4244: 'argument': conversion from 'double' to 'GLfloat', possible loss of data
+sample.obj : warning LNK4075: ignoring '/EDITANDCONTINUE' due to '/INCREMENTAL:NO' specification
+  Sample.vcxproj -> C:\Users\spide\Downloads\CS450 - Final Project - Steven Bertolucci\Sample2022\Debug\Sample.exe
