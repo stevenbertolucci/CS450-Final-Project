@@ -48,7 +48,7 @@
 #define DZ		( ZSIDE/(float)NZ )		// change in z between the points
 
 #define LIGHTRADIUS 50.0f
-#define MSEC 10000;	
+#define MSEC 15000;	
 
 
 //	This is a sample OpenGL / GLUT program
@@ -177,6 +177,8 @@ const GLfloat Colors[ ][3] =
 	{ 1., 0., 1. },		// magenta
 };
 
+float   LightIntensity = 0.3f;
+
 // fog parameters:
 
 const GLfloat FOGCOLOR[4] = { .0f, .0f, .0f, 1.f };
@@ -192,7 +194,7 @@ GLfloat lightColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 // for animation:
 
-const int MS_PER_CYCLE = 10000;		// 10000 milliseconds = 10 seconds
+const int MS_PER_CYCLE = 15000;		// 10000 milliseconds = 10 seconds
 
 struct planet
 {
@@ -211,15 +213,6 @@ struct planet Planets[] =
 };
 
 const int NUMPLANETS = sizeof(Planets) / sizeof(struct planet);
-
-enum LightingMode {
-	NO_TEXTURE,
-	REPLACE,
-	MODULATE
-};
-
-LightingMode mode = MODULATE;
-
 
 
 // what options should we compile-in?
@@ -251,13 +244,29 @@ int		CottageDL;
 int		GrassDL;
 int		TreeDL;
 int		OceanDL;
+int		CatDL;
 GLuint	AxesList;				// list to hold the axes
 GLuint	GridDL;					// object display list
 GLuint	TurfTex;					// Texture for tree
 GLuint  OceanTex;					// Ocean texture
+GLuint  MountainTex;
+GLuint  CottageTex;
+GLuint  RetainingWallTex;
 GLuint	SphereDL, MoonDL, SunDL;	
 GLuint	MoonTex, SunTex;					// texture object 
-int		NowPlanet = 1;
+int		NowPlanet = 0;
+int		SalmonDL;				// Salmon Draw List
+int		AmpLevel = 0;
+int		SpeedLevel = 0;
+int		FreqLevel = 0; 
+
+float AmpValues[3] = { 0.5f, 1.0f, 1.5f };
+float SpeedValues[3] = { 8.0f, 12.0f, 16.0f };
+float FreqValues[3] = { 0.9f, 1.5f, 2.0f };
+
+float currentAmp = AmpValues[AmpLevel];
+float currentSpeed = SpeedValues[SpeedLevel];
+float currentFreq = FreqValues[FreqLevel];
 
 
 // function prototypes:
@@ -375,6 +384,8 @@ TimeOfDaySeed( )
 #include "glslprogram.cpp"
 //#include "vertexbufferobject.cpp"
 
+GLSLProgram Salmon;
+Keytimes Xpos1, Xrot1;
 
 // main program:
 
@@ -497,12 +508,12 @@ Display( )
 	if (ModeOn == 1) {
 
 		// Switch to inside view
-		gluLookAt(-0.4f, 1.7f, -4.9f, 0.f, 0.f, -10.f, 0.f, 1.f, 0.f);
+		gluLookAt(0.0f, 0.0f, 100.0f, 0.f, 0.f, -10.f, 0.f, 1.f, 0.f);
 	}
 	else {
 
 		// Outside view
-		gluLookAt(75.5f, 50.5f, 60.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);	
+		gluLookAt(0.0f, 50.5f, 150.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f);	
 
 		// rotate the scene:
 		glRotatef((GLfloat)Yrot, 0.f, 1.f, 0.f);
@@ -550,14 +561,9 @@ Display( )
 	glEnable( GL_NORMALIZE );
 
 	// Update the light color
-	glLightfv(GL_LIGHT0, GL_AMBIENT, Array3(1., 1., 1.));
+	glLightfv(GL_LIGHT0, GL_AMBIENT, lightColor);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, lightColor);
 	glLightfv(GL_LIGHT0, GL_SPECULAR, lightColor);
-
-	// Light Attenuation
-	glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 1.);
-	glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.);
-	glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.);
 
 	// Draw light source
 	float xlight = LIGHTRADIUS * cos(2.0f * M_PI * Time);
@@ -568,7 +574,20 @@ Display( )
 	glLightfv(GL_LIGHT0, GL_POSITION, Array3(xlight, ylight, zlight));
 
 	// draw the objects by calling up its display list:
-	SetPointLight(GL_LIGHT0, xlight, ylight, zlight, lightColor[0], lightColor[1], lightColor[2]);
+	SetPointLight(GL_LIGHT0, xlight, ylight, zlight, lightColor[0], lightColor[1], lightColor[2], LightIntensity);
+
+	// turn # msec into the cycle ( 0 - MSEC-1 ):
+	int msec = glutGet(GLUT_ELAPSED_TIME) % MSEC;
+
+	// turn that into a time in seconds:
+	float nowTime = (float)msec / 1000.;
+
+	// Cat
+	glPushMatrix();
+	glTranslatef(Xpos1.GetValue(nowTime), 0., 0.);
+	//glRotatef(Xrot1.GetValue(nowTime), 0., 1., 0.);	// angle in degrees
+	glCallList(CatDL);
+	glPopMatrix();
 
 	// Sphere
 	glPushMatrix();
@@ -581,7 +600,6 @@ Display( )
 	glColor3f(1.0f, 1.0f, 1.0f);
 	OsuSphere(10.0f, 20, 20);
 	glDisable(GL_TEXTURE_2D);
-	glEnable(GL_LIGHTING);
 	glPopMatrix();
 
 	glEnable(GL_LIGHTING);
@@ -838,13 +856,514 @@ Display( )
 
 	// Draw the Ocean
 	glPushMatrix();
-	glTranslatef(0.0f, -8.0f, 32.0f);
+	glTranslatef(0.0f, -10.0f, 53.0f);
 	glCallList(OceanDL);
 	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-15.0f, -10.0f, 53.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-30.0f, -10.0f, 53.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-37.0f, -10.0f, 53.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(15.0f, -10.0f, 53.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(30.0f, -10.0f, 53.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(36.5f, -10.0f, 53.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+
+
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(0.0f, -10.0f, 68.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-15.0f, -10.0f, 68.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-30.0f, -10.0f, 68.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-37.0f, -10.0f, 68.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(15.0f, -10.0f, 68.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(30.0f, -10.0f, 68.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(36.5f, -10.0f, 68.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(0.0f, -10.0f, 83.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-15.0f, -10.0f, 83.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-30.0f, -10.0f, 83.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(-37.0f, -10.0f, 83.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(15.0f, -10.0f, 83.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(30.0f, -10.0f, 83.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
+	// Draw the Ocean
+	glPushMatrix();
+	glTranslatef(36.5f, -10.0f, 83.0f);
+	glCallList(OceanDL);
+	glPopMatrix();
+
 
 	// Set the light position
 	GLfloat lightPosition[] = { xlight, ylight, zlight, 1.0f };
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp = currentAmp;
+	float freq = currentFreq;
+	float speed = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp);
+	Salmon.SetUniformVariable("uSpeed", speed);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq);
+
+	glPushMatrix();
+	glTranslatef(0.0f, -10.0f, 55.0f);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp1 = currentAmp;
+	float freq1 = currentFreq;
+	float speed1 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp1);
+	Salmon.SetUniformVariable("uSpeed", speed1);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq1);
+
+	glPushMatrix();
+	glTranslatef(12.0f, -10.0f, 55.0f);
+	glRotatef(15, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp2 = currentAmp;
+	float freq2 = currentFreq;
+	float speed2 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp2);
+	Salmon.SetUniformVariable("uSpeed", speed2);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq2);
+
+	glPushMatrix();
+	glTranslatef(-17.0f, -10.0f, 55.0f);
+	glRotatef(35, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp3 = currentAmp;
+	float freq3 = currentFreq;
+	float speed3 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp3);
+	Salmon.SetUniformVariable("uSpeed", speed3);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq3);
+
+	glPushMatrix();
+	glTranslatef(-14.0f, -10.0f, 55.0f);
+	glRotatef(-15, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp4 = currentAmp;
+	float freq4 = currentFreq;
+	float speed4 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp4);
+	Salmon.SetUniformVariable("uSpeed", speed4);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq4);
+
+	glPushMatrix();
+	glTranslatef(21.0f, -10.0f, 55.0f);
+	glRotatef(-30, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp5 = currentAmp;
+	float freq5 = currentFreq;
+	float speed5 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp5);
+	Salmon.SetUniformVariable("uSpeed", speed5);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq5);
+
+	glPushMatrix();
+	glTranslatef(-8.0f, -10.0f, 55.0f);
+	glRotatef(45, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp6 = currentAmp;
+	float freq6 = currentFreq;
+	float speed6 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp6);
+	Salmon.SetUniformVariable("uSpeed", speed6);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq6);
+
+	glPushMatrix();
+	glTranslatef(0.0f, -10.0f, 65.0f);
+	glRotatef(0, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp7 = currentAmp;
+	float freq7 = currentFreq;
+	float speed7 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp7);
+	Salmon.SetUniformVariable("uSpeed", speed7);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq7);
+
+	glPushMatrix();
+	glTranslatef(10.0f, -10.0f, 65.0f);
+	glRotatef(90, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp8 = currentAmp;
+	float freq8 = currentFreq;
+	float speed8 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp8);
+	Salmon.SetUniformVariable("uSpeed", speed8);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq8);
+
+	glPushMatrix();
+	glTranslatef(20.0f, -10.0f, 65.0f);
+	glRotatef(-45, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp9 = currentAmp;
+	float freq9 = currentFreq;
+	float speed9 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp9);
+	Salmon.SetUniformVariable("uSpeed", speed9);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq9);
+
+	glPushMatrix();
+	glTranslatef(30.0f, -10.0f, 65.0f);
+	glRotatef(-90, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp10 = currentAmp;
+	float freq10 = currentFreq;
+	float speed10 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp10);
+	Salmon.SetUniformVariable("uSpeed", speed10);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq10);
+
+	glPushMatrix();
+	glTranslatef(-10.0f, -10.0f, 65.0f);
+	glRotatef(-40, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp11 = currentAmp;
+	float freq11 = currentFreq;
+	float speed11 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp11);
+	Salmon.SetUniformVariable("uSpeed", speed11);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq11);
+
+	glPushMatrix();
+	glTranslatef(-14.0f, -10.0f, 75.0f);
+	glRotatef(15, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp12 = currentAmp;
+	float freq12 = currentFreq;
+	float speed12 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp12);
+	Salmon.SetUniformVariable("uSpeed", speed12);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq12);
+
+	glPushMatrix();
+	glTranslatef(10.0f, -10.0f, 75.0f);
+	glRotatef(-35, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp13 = currentAmp;
+	float freq13 = currentFreq;
+	float speed13 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp13);
+	Salmon.SetUniformVariable("uSpeed", speed13);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq13);
+
+	glPushMatrix();
+	glTranslatef(-20.0f, -10.0f, 75.0f);
+	glRotatef(45, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp14 = currentAmp;
+	float freq14 = currentFreq;
+	float speed14 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp14);
+	Salmon.SetUniformVariable("uSpeed", speed14);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq14);
+
+	glPushMatrix();
+	glTranslatef(-18.0f, -10.0f, 75.0f);
+	glRotatef(0, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
+
+
+	Salmon.Use();									// Turns the Salmon shader program on
+	// No more fixed-function -- the shader Salmon now handles everything
+	// but the shader program just sits there idling until you draw something
+
+	float amp15 = currentAmp;
+	float freq15 = currentFreq;
+	float speed15 = currentSpeed;
+
+	Salmon.SetUniformVariable("uTime", Time);		// 0. - 1. set in Animate()
+	Salmon.SetUniformVariable("uAmp", amp15);
+	Salmon.SetUniformVariable("uSpeed", speed15);		// Feel free to change this if you want
+	Salmon.SetUniformVariable("uFreq", freq15);
+
+	glPushMatrix();
+	glTranslatef(30.0f, -10.0f, 75.0f);
+	glRotatef(-30, 0, 1, 0);
+	glCallList(SalmonDL);                        // Now the shader program has vertices and fragements to work on
+	glPopMatrix();
+
+	Salmon.UnUse();									// Go back to fixed-function OpenGL
+
+
 
 #ifdef DEMO_Z_FIGHTING
 	if( DepthFightingOn != 0 )
@@ -1175,6 +1694,57 @@ InitGraphics( )
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, 3, width1, height1, 0, GL_RGB, GL_UNSIGNED_BYTE, texture1);
 
+	// Mountain texture
+	int width2, height2;
+	char* file2 = (char*)"mountain_texture.bmp";
+	unsigned char* texture2 = BmpToTexture(file2, &width2, &height2);
+	if (texture2 == NULL)
+		fprintf(stderr, "Cannot open texture '%s'\n", file2);
+	else fprintf(stderr, "Opened '%s': width = %d ; height = %d\n", file2, width2, height2);
+
+	glGenTextures(1, &MountainTex);
+	glBindTexture(GL_TEXTURE_2D, MountainTex);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, width2, height2, 0, GL_RGB, GL_UNSIGNED_BYTE, texture2);
+
+	// Cottage texture
+	int width3, height3;
+	char* file3 = (char*)"brick.bmp";
+	unsigned char* texture3 = BmpToTexture(file3, &width3, &height3);
+	if (texture3 == NULL)
+		fprintf(stderr, "Cannot open texture '%s'\n", file3);
+	else fprintf(stderr, "Opened '%s': width = %d ; height = %d\n", file3, width3, height3);
+
+	glGenTextures(1, &CottageTex);
+	glBindTexture(GL_TEXTURE_2D, CottageTex);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, width3, height3, 0, GL_RGB, GL_UNSIGNED_BYTE, texture3);
+
+	// Retaining Wall texture
+	int width4, height4;
+	char* file4 = (char*)"retaining_wall.bmp";
+	unsigned char* texture4 = BmpToTexture(file4, &width4, &height4);
+	if (texture4 == NULL)
+		fprintf(stderr, "Cannot open texture '%s'\n", file4);
+	else fprintf(stderr, "Opened '%s': width = %d ; height = %d\n", file4, width4, height4);
+
+	glGenTextures(1, &RetainingWallTex);
+	glBindTexture(GL_TEXTURE_2D, RetainingWallTex);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, width4, height4, 0, GL_RGB, GL_UNSIGNED_BYTE, texture4);
+
 	// All planets
 	for (int i = 0; i < NUMPLANETS; i++)
 	{
@@ -1211,6 +1781,38 @@ InitGraphics( )
 #endif
 
 	// all other setups go here, such as GLSLProgram and KeyTime setups:
+	Xpos1.Init();
+	Xpos1.AddTimeValue(0.0, -30.000);
+	Xpos1.AddTimeValue(7.5, 30.000);
+	Xpos1.AddTimeValue(15.0, -30.000);
+	fprintf(stderr, "%d time-value pairs:\n", Xpos1.GetNumKeytimes());
+	Xpos1.PrintTimeValues();
+
+	fprintf(stderr, "Time runs from %8.3f to %8.3f\n", Xpos1.GetFirstTime(), Xpos1.GetLastTime());
+
+	for (float t = 0.f; t <= 15.1f; t += 0.1f) {
+		float v = Xpos1.GetValue(t);
+		fprintf(stderr, "%8.3f\t%8.3f\n", t, v);
+	}
+
+
+	Salmon.Init();
+
+	bool valid = Salmon.Create("salmon.vert", "salmon.frag");
+
+	if (!valid)
+	{
+		fprintf(stderr, "Yuch! The Salmon shader did not compile.\n");
+	}
+	else
+	{
+		fprintf(stderr, "Woo-hoo! The Salmon shader compliled.\n");
+	}
+
+	Salmon.SetUniformVariable("uKa", 0.1f);						// all 3 should add up to 1.0 
+	Salmon.SetUniformVariable("uKd", 0.7f);
+	Salmon.SetUniformVariable("uKs", 0.2f);
+	Salmon.SetUniformVariable("uShininess", 25.f);			// whatever you like from P3
 
 }
 
@@ -1228,6 +1830,17 @@ InitLists( )
 
 	glutSetWindow( MainWindow );
 
+	// Create the object (Cat)
+	CatDL = glGenLists(1);
+	glNewList(CatDL, GL_COMPILE);
+	glPushMatrix();
+	//glRotatef(-30.0f, 0.0f, 1.0f, 0.0f);
+	glTranslatef(0.0, -10.0f, 44.0f);			// +Z direction
+	SetMaterial(0.2f, 0.8f, 0.2f, 90.f);
+	LoadObjFile((char*)"cat.obj");
+	glPopMatrix();
+	glEndList();
+
 	// Sphere
 	SphereDL = glGenLists(1);
 	glNewList(SphereDL, GL_COMPILE);
@@ -1241,7 +1854,7 @@ InitLists( )
 		glBindTexture(GL_TEXTURE_2D, Planets[i].texObject);						// Tex must have already been created when this is called
 		SetMaterial(0.6f, 0.6f, 0.6f, 10.0f);
 		glPushMatrix();
-		glScalef(Planets[i].scale, Planets[i].scale, Planets[i].scale);			// scale of venussphere, from the table 
+		glScalef(Planets[i].scale, Planets[i].scale, Planets[i].scale);			
 		glCallList(SphereDL);													// a dl can call another dl that has been 
 		// previously created 
 		glPopMatrix();
@@ -1279,15 +1892,112 @@ InitLists( )
 	}
 
 	glDisable(GL_TEXTURE_2D);
-	glPopMatrix();
+
+	// Retaining wall towards the bottom
+	float wallHeight = 70.0f; 
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, RetainingWallTex);
+	SetMaterial(0.0f, 1.0f, 0.0f, 100.f);		// or whatever else you want
+	glNormal3f(0., 1., 0.);
+
+	glBegin(GL_QUADS);
+
+	// Bottom edge
+	for (int j = 0; j < NX - 1; j++) {
+		float x0 = X0 + DX * j;
+		float x1 = X0 + DX * (j + 1);
+		float z = Z0;
+
+		// Rear
+		glTexCoord2f((float)j / NX, 1.0f); glVertex3f(x0, YGRID, z);
+		glTexCoord2f((float)(j + 1) / NX, 1.0f); glVertex3f(x1, YGRID, z);
+		glTexCoord2f((float)(j + 1) / NX, 0.0f); glVertex3f(x1, YGRID - wallHeight, z);
+		glTexCoord2f((float)j / NX, 0.0f); glVertex3f(x0, YGRID - wallHeight, z);
+	}
+
+	glEnd();
+
+	glBegin(GL_QUADS);
+
+	// Retaining wall left
+	for (int i = 0; i < NZ - 1 + (46.5 / DZ); i++) {
+		float z0 = Z0 + DZ * i;
+		float z1 = Z0 + DZ * (i + 1);
+		float x = X0;
+
+		glTexCoord2f(0.0f, (float)i / NZ); glVertex3f(x, YGRID, z0);
+		glTexCoord2f(0.0f, (float)(i + 1) / NZ); glVertex3f(x, YGRID, z1);
+		glTexCoord2f(1.0f, (float)(i + 1) / NZ); glVertex3f(x, YGRID - wallHeight, z1);
+		glTexCoord2f(1.0f, (float)i / NZ); glVertex3f(x, YGRID - wallHeight, z0);
+	}
+
+	glEnd();
+
+	glBegin(GL_QUADS);
+
+	// Retaining wall right
+	float offset = 0.5f;
+	for (int i = 0; i < NZ - 1 + (46.5 / DZ); i++) {
+		float z0 = Z0 + DZ * i;
+		float z1 = Z0 + DZ * (i + 1);
+		float x = X0 + XSIDE - offset;
+
+		glTexCoord2f(0.0f, (float)i / NZ); glVertex3f(x, YGRID, z0);
+		glTexCoord2f(0.0f, (float)(i + 1) / NZ); glVertex3f(x, YGRID, z1);
+		glTexCoord2f(1.0f, (float)(i + 1) / NZ); glVertex3f(x, YGRID - wallHeight, z1);
+		glTexCoord2f(1.0f, (float)i / NZ); glVertex3f(x, YGRID - wallHeight, z0);
+	}
+
+	glDisable(GL_TEXTURE_2D);
+
+	glEnd();
+
+	glBegin(GL_QUADS);
+
+	// Front edge
+	for (int j = 0; j < NX - 1; j++) {
+		float x0 = X0 + DX * j;
+		float x1 = X0 + DX * (j + 1);
+		float z = Z0 + 135.5;
+
+		// Front
+		glTexCoord2f((float)j / NX, 1.0f); glVertex3f(x0, YGRID, z);
+		glTexCoord2f((float)(j + 1) / NX, 1.0f); glVertex3f(x1, YGRID, z);
+		glTexCoord2f((float)(j + 1) / NX, 0.0f); glVertex3f(x1, YGRID - wallHeight, z);
+		glTexCoord2f((float)j / NX, 0.0f); glVertex3f(x0, YGRID - wallHeight, z);
+	}
+
+	glDisable(GL_TEXTURE_2D);
+
+	glEnd();
 	glEndList();
 
+	// create the object (Salmon):
+	SalmonDL = glGenLists(1);
+	glNewList(SalmonDL, GL_COMPILE);
+	LoadObjFile((char*)"salmon.obj");
+	glEndList();
+
+	glPopMatrix();
+
+	// Create the mountain draw list
 	MountainDL = glGenLists(1); 
 	glNewList(MountainDL, GL_COMPILE); 
 	glPushMatrix();
 	glTranslatef(0.0, 0.0f, -10.0f);		// -Z direction
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, MountainTex);
+	
+	//SetMaterial(0.8f, 0.7f, 0.5f, 10.0f);
 	glColor3f(0.8f, 0.7f, 0.5f);
+	SetMaterial(0.0f, 1.0f, 1.0f, 100.f);		// or whatever else you want
+	glNormal3f(0., 1., 0.);
+
 	LoadObjFile((char*)"Terrain_50000.obj");
+	glDisable(GL_TEXTURE_2D);
+
 	glPopMatrix();
 	glEndList();
 
@@ -1297,8 +2007,17 @@ InitLists( )
 	glPushMatrix();
 	glTranslatef(-9.2f, -9.8f, 0.0f);		// -Y direction
 	glScalef(2.0f, 2.0f, 2.0f);
+
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, CottageTex);
+
 	glColor3f(1.0f, 1.0f, 1.0f);
+	SetMaterial(0.0f, 1.0f, 1.0f, 100.f);		// or whatever else you want
+	glNormal3f(0., 1., 0.);
+
 	LoadObjFile((char*)"house.obj");
+	glDisable(GL_TEXTURE_2D);
+
 	glPopMatrix();
 	glEndList();
 
@@ -1343,15 +2062,15 @@ InitLists( )
 
 
 	// create the axes:
-	AxesList = glGenLists( 1 );
-	glNewList( AxesList, GL_COMPILE );
-	glPushMatrix();
-		glLineWidth( AXES_WIDTH );
-		glColor3f(1.0f, 0.0f, 1.0f);
-			Axes( 48.0 );
-		glLineWidth( 5. );
-	glPopMatrix();
-	glEndList( );
+	//AxesList = glGenLists( 1 );
+	//glNewList( AxesList, GL_COMPILE );
+	//glPushMatrix();
+	//	glLineWidth( AXES_WIDTH );
+	//	glColor3f(1.0f, 0.0f, 1.0f);
+	//		Axes( 48.0 );
+	//	glLineWidth( 5. );
+	//glPopMatrix();
+	//glEndList( );
 }
 
 
@@ -1438,6 +2157,16 @@ Keyboard( unsigned char c, int x, int y )
 		if (tolower(c) == Planets[i].key)
 		{
 			NowPlanet = i;
+
+			if (i == 1)
+			{
+				LightIntensity = -0.5f;
+			}
+			else if (i == 0)
+			{
+				LightIntensity = 0.3f;
+			}
+
 			break;
 		}
 	}

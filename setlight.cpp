@@ -1,8 +1,8 @@
 void
-SetPointLight( int ilight, float x, float y, float z,  float r, float g, float b )
+SetPointLight( int ilight, float x, float y, float z,  float r, float g, float b, float intensity )
 {
 	glLightfv( ilight, GL_POSITION,  Array3( x, y, z ) );
-	glLightfv( ilight, GL_AMBIENT,   MulArray3( 0.1f,  1.f, 1.f, 1.f ) );
+	glLightfv( ilight, GL_AMBIENT,   MulArray3( intensity, 1.f, 1.f, 1.f ) );
 	glLightfv( ilight, GL_DIFFUSE,   MulArray3( 0.6f, r, g, b ) );
 	glLightfv( ilight, GL_SPECULAR,  MulArray3( 0.4f, 1.f, 1.f, 1.f ) );
 	glLightf ( ilight, GL_CONSTANT_ATTENUATION, 1. );
