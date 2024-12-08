@@ -260,13 +260,10 @@ int		AmpLevel = 0;
 int		SpeedLevel = 0;
 int		FreqLevel = 0; 
 
-float AmpValues[3] = { 0.5f, 1.0f, 1.5f };
-float SpeedValues[3] = { 8.0f, 12.0f, 16.0f };
-float FreqValues[3] = { 0.9f, 1.5f, 2.0f };
-
-float currentAmp = AmpValues[AmpLevel];
-float currentSpeed = SpeedValues[SpeedLevel];
-float currentFreq = FreqValues[FreqLevel];
+// For salmon shader
+float currentAmp = 0.5f;
+float currentSpeed = 8.0f;
+float currentFreq = 0.9f;
 
 
 // function prototypes:
@@ -1749,7 +1746,6 @@ InitGraphics( )
 	for (int i = 0; i < NUMPLANETS; i++)
 	{
 		int width, height;
-		// char* file = (char*)"venus.bmp";
 		unsigned char* texture = BmpToTexture(Planets[i].file, &width, &height);
 		if (texture == NULL)
 		{
@@ -1835,7 +1831,7 @@ InitLists( )
 	glNewList(CatDL, GL_COMPILE);
 	glPushMatrix();
 	//glRotatef(-30.0f, 0.0f, 1.0f, 0.0f);
-	glTranslatef(0.0, -10.0f, 44.0f);			// +Z direction
+	glTranslatef(0.0, -10.0f, 44.0f);
 	SetMaterial(0.2f, 0.8f, 0.2f, 90.f);
 	LoadObjFile((char*)"cat.obj");
 	glPopMatrix();
@@ -1893,7 +1889,7 @@ InitLists( )
 
 	glDisable(GL_TEXTURE_2D);
 
-	// Retaining wall towards the bottom
+	// Retaining wall height
 	float wallHeight = 70.0f; 
 
 	glEnable(GL_TEXTURE_2D);
@@ -1910,10 +1906,14 @@ InitLists( )
 		float z = Z0;
 
 		// Rear
-		glTexCoord2f((float)j / NX, 1.0f); glVertex3f(x0, YGRID, z);
-		glTexCoord2f((float)(j + 1) / NX, 1.0f); glVertex3f(x1, YGRID, z);
-		glTexCoord2f((float)(j + 1) / NX, 0.0f); glVertex3f(x1, YGRID - wallHeight, z);
-		glTexCoord2f((float)j / NX, 0.0f); glVertex3f(x0, YGRID - wallHeight, z);
+		glTexCoord2f((float)j / NX, 1.0f); 
+		glVertex3f(x0, YGRID, z);
+		glTexCoord2f((float)(j + 1) / NX, 1.0f); 
+		glVertex3f(x1, YGRID, z);
+		glTexCoord2f((float)(j + 1) / NX, 0.0f); 
+		glVertex3f(x1, YGRID - wallHeight, z);
+		glTexCoord2f((float)j / NX, 0.0f); 
+		glVertex3f(x0, YGRID - wallHeight, z);
 	}
 
 	glEnd();
@@ -1926,10 +1926,14 @@ InitLists( )
 		float z1 = Z0 + DZ * (i + 1);
 		float x = X0;
 
-		glTexCoord2f(0.0f, (float)i / NZ); glVertex3f(x, YGRID, z0);
-		glTexCoord2f(0.0f, (float)(i + 1) / NZ); glVertex3f(x, YGRID, z1);
-		glTexCoord2f(1.0f, (float)(i + 1) / NZ); glVertex3f(x, YGRID - wallHeight, z1);
-		glTexCoord2f(1.0f, (float)i / NZ); glVertex3f(x, YGRID - wallHeight, z0);
+		glTexCoord2f(0.0f, (float)i / NZ); 
+		glVertex3f(x, YGRID, z0);
+		glTexCoord2f(0.0f, (float)(i + 1) / NZ); 
+		glVertex3f(x, YGRID, z1);
+		glTexCoord2f(1.0f, (float)(i + 1) / NZ); 
+		glVertex3f(x, YGRID - wallHeight, z1);
+		glTexCoord2f(1.0f, (float)i / NZ); 
+		glVertex3f(x, YGRID - wallHeight, z0);
 	}
 
 	glEnd();
@@ -1943,10 +1947,14 @@ InitLists( )
 		float z1 = Z0 + DZ * (i + 1);
 		float x = X0 + XSIDE - offset;
 
-		glTexCoord2f(0.0f, (float)i / NZ); glVertex3f(x, YGRID, z0);
-		glTexCoord2f(0.0f, (float)(i + 1) / NZ); glVertex3f(x, YGRID, z1);
-		glTexCoord2f(1.0f, (float)(i + 1) / NZ); glVertex3f(x, YGRID - wallHeight, z1);
-		glTexCoord2f(1.0f, (float)i / NZ); glVertex3f(x, YGRID - wallHeight, z0);
+		glTexCoord2f(0.0f, (float)i / NZ); 
+		glVertex3f(x, YGRID, z0);
+		glTexCoord2f(0.0f, (float)(i + 1) / NZ); 
+		glVertex3f(x, YGRID, z1);
+		glTexCoord2f(1.0f, (float)(i + 1) / NZ); 
+		glVertex3f(x, YGRID - wallHeight, z1);
+		glTexCoord2f(1.0f, (float)i / NZ); 
+		glVertex3f(x, YGRID - wallHeight, z0);
 	}
 
 	glDisable(GL_TEXTURE_2D);
@@ -1962,10 +1970,14 @@ InitLists( )
 		float z = Z0 + 135.5;
 
 		// Front
-		glTexCoord2f((float)j / NX, 1.0f); glVertex3f(x0, YGRID, z);
-		glTexCoord2f((float)(j + 1) / NX, 1.0f); glVertex3f(x1, YGRID, z);
-		glTexCoord2f((float)(j + 1) / NX, 0.0f); glVertex3f(x1, YGRID - wallHeight, z);
-		glTexCoord2f((float)j / NX, 0.0f); glVertex3f(x0, YGRID - wallHeight, z);
+		glTexCoord2f((float)j / NX, 1.0f); 
+		glVertex3f(x0, YGRID, z);
+		glTexCoord2f((float)(j + 1) / NX, 1.0f); 
+		glVertex3f(x1, YGRID, z);
+		glTexCoord2f((float)(j + 1) / NX, 0.0f); 
+		glVertex3f(x1, YGRID - wallHeight, z);
+		glTexCoord2f((float)j / NX, 0.0f);
+		glVertex3f(x0, YGRID - wallHeight, z);
 	}
 
 	glDisable(GL_TEXTURE_2D);
@@ -1985,7 +1997,7 @@ InitLists( )
 	MountainDL = glGenLists(1); 
 	glNewList(MountainDL, GL_COMPILE); 
 	glPushMatrix();
-	glTranslatef(0.0, 0.0f, -10.0f);		// -Z direction
+	glTranslatef(0.0, 0.0f, -10.0f);		
 
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, MountainTex);
@@ -2005,7 +2017,7 @@ InitLists( )
 	CottageDL = glGenLists(1);
 	glNewList(CottageDL, GL_COMPILE);
 	glPushMatrix();
-	glTranslatef(-9.2f, -9.8f, 0.0f);		// -Y direction
+	glTranslatef(-9.2f, -9.8f, 0.0f);		
 	glScalef(2.0f, 2.0f, 2.0f);
 
 	glEnable(GL_TEXTURE_2D);
